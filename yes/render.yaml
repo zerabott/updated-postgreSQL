@@ -1,0 +1,59 @@
+services:
+  # Telegram Bot as Web Service (for free 24/7 hosting)
+  - type: web
+    name: telegram-confession-bot
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python bot_web.py"
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: CHANNEL_ID
+        sync: false
+      - key: BOT_USERNAME
+        sync: false
+      - key: ADMIN_ID_1
+        sync: false
+      - key: ADMIN_ID_2
+        sync: false
+      - key: USE_POSTGRESQL
+        value: "true"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: confession-bot-db
+          property: connectionString
+      - key: PORT
+        value: "10000"
+      # Optional: Override individual PostgreSQL connection parameters
+      - key: PGHOST
+        fromDatabase:
+          name: confession-bot-db
+          property: host
+      - key: PGPORT
+        fromDatabase:
+          name: confession-bot-db
+          property: port
+      - key: PGDATABASE
+        fromDatabase:
+          name: confession-bot-db
+          property: database
+      - key: PGUSER
+        fromDatabase:
+          name: confession-bot-db
+          property: user
+      - key: PGPASSWORD
+        fromDatabase:
+          name: confession-bot-db
+          property: password
+    autoDeploy: true
+    
+  # PostgreSQL Database Service (Free tier)
+  - type: pserv
+    name: confession-bot-db
+    env: postgres
+    plan: free
+    disk:
+      name: confession-bot-data
+      size: 1GB
+      type: ssd
