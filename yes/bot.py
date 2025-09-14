@@ -7405,26 +7405,71 @@ async def handle_confirm_delete_post_callback(update: Update, context: ContextTy
             logger.error(f"Admin {user_id} failed to delete post {post_id}: {deletion_stats}")
     
     except Exception as e:
-        logger.error(f"Error in handle_confirm_delete_post_callback: {e}")
+        logger.error(f"Critical error in handle_confirm_delete_post_callback for post {post_id}: {e}")
+        logger.error(f"Admin user {user_id}, Post ID: {post_id}, Exception type: {type(e).__name__}")
+        
+        # Log additional context for debugging
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        
+        # Provide more detailed error information based on exception type
+        error_str = str(e).lower()
+        if "connection" in error_str or "network" in error_str:
+            error_details = "🌐 Network or database connection issue. This may be temporary."
+            suggestion = "Please wait a few moments and try again."
+        elif "permission" in error_str or "access" in error_str:
+            error_details = "🔒 Database permission or access issue."
+            suggestion = "Please contact the system administrator."
+        elif "timeout" in error_str:
+            error_details = "⏰ Operation timed out due to system load."
+            suggestion = "Please try again in a few minutes."
+        elif "foreign key" in error_str or "constraint" in error_str:
+            error_details = "🔗 Database constraint issue - there may be related data preventing deletion."
+            suggestion = "Please contact the system administrator."
+        else:
+            error_details = "💥 An unexpected system error occurred."
+            suggestion = "Please try again or contact the system administrator."
         
         # Unexpected error (use HTML formatting to avoid escaping issues)
         error_text = (
-            f"<b>❌ Deletion Error</b>\n\n"
-            f"🚨 An unexpected error occurred while deleting the post.\n\n"
-            f"Error: {str(e)}\n\n"
-            f"Please try again later or contact the system administrator."
+            f"<b>❌ Critical Deletion Error</b>\n\n"
+            f"{error_details}\n\n"
+            f"<b>Technical Details:</b>\n"
+            f"• Post ID: #{post_id}\n"
+            f"• Admin ID: {user_id}\n"
+            f"• Error: {str(e)[:200]}{'...' if len(str(e)) > 200 else ''}\n\n"
+            f"<b>What to do:</b>\n{suggestion}\n\n"
+            f"⚠️ This error has been logged for investigation."
         )
         
-        keyboard = [[
-            InlineKeyboardButton("🔙 Back to Reports", callback_data="admin_view_reports")
-        ]]
+        keyboard = [
+            [
+                InlineKeyboardButton("🔄 Try Again", callback_data=f"admin_delete_post_{post_id}"),
+                InlineKeyboardButton("🔙 Back to Reports", callback_data="admin_view_reports")
+            ],
+            [
+                InlineKeyboardButton("🏠 Main Menu", callback_data="menu")
+            ]
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await query.edit_message_text(
-            error_text,
-            reply_markup=reply_markup,
-            parse_mode="HTML"
-        )
+        try:
+            await query.edit_message_text(
+                error_text,
+                reply_markup=reply_markup,
+                parse_mode="HTML"
+            )
+        except Exception as edit_error:
+            logger.error(f"Failed to edit error message for post deletion: {edit_error}")
+            # Try to send a new message if editing fails
+            try:
+                await query.message.reply_text(
+                    f"❌ Critical error during post deletion: {str(e)[:100]}...",
+                    reply_markup=reply_markup,
+                    parse_mode="HTML"
+                )
+            except Exception as reply_error:
+                logger.error(f"Failed to send error reply for post deletion: {reply_error}")
 
 async def handle_confirm_delete_comment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle confirmed comment deletion"""
@@ -7537,26 +7582,71 @@ async def handle_confirm_delete_comment_callback(update: Update, context: Contex
             logger.error(f"Admin {user_id} failed to delete comment {comment_id}: {deletion_stats}")
     
     except Exception as e:
-        logger.error(f"Error in handle_confirm_delete_comment_callback: {e}")
+        logger.error(f"Critical error in handle_confirm_delete_comment_callback for comment {comment_id}: {e}")
+        logger.error(f"Admin user {user_id}, Comment ID: {comment_id}, Exception type: {type(e).__name__}")
         
-        # Unexpected error (use HTML formatting)
+        # Log additional context for debugging
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        
+        # Provide more detailed error information based on exception type
+        error_str = str(e).lower()
+        if "connection" in error_str or "network" in error_str:
+            error_details = "🌐 Network or database connection issue. This may be temporary."
+            suggestion = "Please wait a few moments and try again."
+        elif "permission" in error_str or "access" in error_str:
+            error_details = "🔒 Database permission or access issue."
+            suggestion = "Please contact the system administrator."
+        elif "timeout" in error_str:
+            error_details = "⏰ Operation timed out due to system load."
+            suggestion = "Please try again in a few minutes."
+        elif "foreign key" in error_str or "constraint" in error_str:
+            error_details = "🔗 Database constraint issue - there may be related data preventing deletion."
+            suggestion = "Please contact the system administrator."
+        else:
+            error_details = "💥 An unexpected system error occurred."
+            suggestion = "Please try again or contact the system administrator."
+        
+        # Unexpected error (use HTML formatting to avoid escaping issues)
         error_text = (
-            f"<b>❌ Deletion Error</b>\n\n"
-            f"🚨 An unexpected error occurred while deleting the comment.\n\n"
-            f"Error: {str(e)}\n\n"
-            f"Please try again later or contact the system administrator."
+            f"<b>❌ Critical Deletion Error</b>\n\n"
+            f"{error_details}\n\n"
+            f"<b>Technical Details:</b>\n"
+            f"• Comment ID: #{comment_id}\n"
+            f"• Admin ID: {user_id}\n"
+            f"• Error: {str(e)[:200]}{'...' if len(str(e)) > 200 else ''}\n\n"
+            f"<b>What to do:</b>\n{suggestion}\n\n"
+            f"⚠️ This error has been logged for investigation."
         )
         
-        keyboard = [[
-            InlineKeyboardButton("🔙 Back to Reports", callback_data="admin_view_reports")
-        ]]
+        keyboard = [
+            [
+                InlineKeyboardButton("🔄 Try Again", callback_data=f"admin_delete_comment_{comment_id}"),
+                InlineKeyboardButton("🔙 Back to Reports", callback_data="admin_view_reports")
+            ],
+            [
+                InlineKeyboardButton("🏠 Main Menu", callback_data="menu")
+            ]
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await query.edit_message_text(
-            error_text,
-            reply_markup=reply_markup,
-            parse_mode="HTML"
-        )
+        try:
+            await query.edit_message_text(
+                error_text,
+                reply_markup=reply_markup,
+                parse_mode="HTML"
+            )
+        except Exception as edit_error:
+            logger.error(f"Failed to edit error message for comment deletion: {edit_error}")
+            # Try to send a new message if editing fails
+            try:
+                await query.message.reply_text(
+                    f"❌ Critical error during comment deletion: {str(e)[:100]}...",
+                    reply_markup=reply_markup,
+                    parse_mode="HTML"
+                )
+            except Exception as reply_error:
+                logger.error(f"Failed to send error reply for comment deletion: {reply_error}")
 
 async def admin_user_detailed_info(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id_to_view: int):
     """Show detailed user information using SearchManager with navigation buttons"""
