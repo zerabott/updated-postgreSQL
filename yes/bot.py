@@ -6563,13 +6563,29 @@ async def handle_admin_user_search(update: Update, context: ContextTypes.DEFAULT
         
     except Exception as e:
         logger.error(f"Error in handle_admin_user_search: {e}")
-        await update.message.reply_text(
-            "❌ *Error*\n\nFailed to perform search\\. Please try again\\.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔙 Back to Search", callback_data="admin_search_user")
-            ]]),
-            parse_mode="MarkdownV2"
-        )
+        
+        # Handle specific connection errors
+        error_message = "❌ *Error*\n\nFailed to perform search\\. Please try again\\."
+        if "httpx.ConnectError" in str(e) or "ConnectError" in str(e):
+            error_message = "🌐 *Network Error*\n\nConnection issue detected\\. Please check your internet connection and try again\\."
+        elif "timeout" in str(e).lower():
+            error_message = "⏱️ *Timeout Error*\n\nRequest timed out\\. Please try again\\."
+        
+        try:
+            await update.message.reply_text(
+                error_message,
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Back to Search", callback_data="admin_search_user")
+                ]]),
+                parse_mode="MarkdownV2"
+            )
+        except Exception as reply_error:
+            logger.error(f"Failed to send error reply: {reply_error}")
+            # Try to send a simple text message without markdown if the formatted one fails
+            try:
+                await update.message.reply_text("Error occurred during search. Please try again.")
+            except:
+                pass
         
         # Clear search state on error
         context.user_data.pop('state', None)
