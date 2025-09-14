@@ -4630,7 +4630,7 @@ async def admin_pending_posts(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Delete the menu and send header
     await query.delete_message()
     
-    header_text = f"📋 *Pending Posts ({len(pending_posts)})*\n\n⏳ Posts waiting for review"
+    header_text = f"📋 *Pending Posts \\({len(pending_posts)}\\)*\n\n⏳ Posts waiting for review"
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=header_text,
@@ -4736,10 +4736,19 @@ async def admin_pending_posts(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Send each pending post individually with approval buttons
     for post in pending_posts[:10]:  # Show first 10 pending posts
         post_id = post[0]
-        user_id = post[1]  # submitter user ID
-        content = post[2]
-        category = post[3]
-        timestamp = post[4]
+        content = post[1]  # content is at index 1
+        category = post[2]  # category is at index 2
+        timestamp = post[3]  # timestamp is at index 3
+        user_id = post[4]  # user_id is at index 4
+        
+        # Format timestamp safely
+        try:
+            if isinstance(timestamp, str):
+                formatted_time = timestamp[:16] if len(timestamp) >= 16 else str(timestamp)
+            else:
+                formatted_time = str(timestamp)
+        except:
+            formatted_time = "recently"
         
         # Format the post for admin review
         admin_text = f"""
@@ -4748,7 +4757,7 @@ async def admin_pending_posts(update: Update, context: ContextTypes.DEFAULT_TYPE
 *ID:* {escape_markdown_text(f'#{post_id}')}
 *Category:* {escape_markdown_text(category)}
 *Submitter:* {user_id}
-*Submitted:* {escape_markdown_text(timestamp[:16])}
+*Submitted:* {escape_markdown_text(formatted_time)}
 
 *Content:*
 {escape_markdown_text(content)}
