@@ -7110,7 +7110,7 @@ async def handle_admin_delete_post_callback(update: Update, context: ContextType
             return
 
         # Show confirmation dialog
-        content_preview = post_details['content'][:100] + "\\.\\.\\.." if len(post_details['content']) > 100 else post_details['content']
+        content_preview = post_details['content'][:100] + "..." if len(post_details['content']) > 100 else post_details['content']
 
         confirm_text = f"""⚠️ *Confirm Deletion*
 
@@ -7165,7 +7165,7 @@ async def handle_admin_delete_comment_callback(update: Update, context: ContextT
         return
     
     # Show confirmation dialog
-    content_preview = comment_details['content'][:100] + "\\.\\.\\..." if len(comment_details['content']) > 100 else comment_details['content']
+    content_preview = comment_details['content'][:100] + "..." if len(comment_details['content']) > 100 else comment_details['content']
     
     confirm_text = f"""⚠️ *Confirm Comment Deletion*
 
