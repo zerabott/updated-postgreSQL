@@ -529,14 +529,60 @@ async def show_rejection_reason_menu(query, post_id, context):
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     
+    # First, determine if this is a media message by checking if it has a caption
+    is_media_message = hasattr(query.message, 'caption') and query.message.caption is not None
+    
     try:
-        await query.edit_message_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode="Markdown"
-        )
+        if is_media_message:
+            # For media messages, edit the caption
+            await query.edit_message_caption(
+                caption=text,
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+        else:
+            # For text messages, edit the text
+            await query.edit_message_text(
+                text,
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
     except Exception as e:
-        logging.error(f"Error showing rejection menu: {e}")
+        # If the first attempt fails, try the other method
+        try:
+            if is_media_message:
+                # Try editing text if caption editing failed
+                await query.edit_message_text(
+                    text,
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+            else:
+                # Try editing caption if text editing failed
+                await query.edit_message_caption(
+                    caption=text,
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+        except Exception as e2:
+            # If both methods fail, send a new message as fallback
+            try:
+                await context.bot.send_message(
+                    chat_id=query.message.chat_id,
+                    text=text,
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+                # Delete the original message to avoid clutter
+                try:
+                    await query.message.delete()
+                except:
+                    pass
+                # Answer the callback to prevent "loading" state
+                await query.answer("Rejection menu opened")
+            except Exception as e3:
+                logging.error(f"Failed to show rejection menu after all attempts: {e3}")
+                await query.answer("❗ Error showing rejection menu. Please try again.")
 
 async def handle_rejection_reason_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle predefined rejection reason selection"""
@@ -589,14 +635,55 @@ async def handle_custom_rejection_callback(update: Update, context: ContextTypes
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
+    # Check if this is a media message
+    is_media_message = hasattr(query.message, 'caption') and query.message.caption is not None
+    
     try:
-        await query.edit_message_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode="Markdown"
-        )
+        if is_media_message:
+            # For media messages, edit the caption
+            await query.edit_message_caption(
+                caption=text,
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+        else:
+            # For text messages, edit the text
+            await query.edit_message_text(
+                text,
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
     except Exception as e:
-        logging.error(f"Error showing custom rejection input: {e}")
+        # If the first attempt fails, try the other method
+        try:
+            if is_media_message:
+                # Try editing text if caption editing failed
+                await query.edit_message_text(
+                    text,
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+            else:
+                # Try editing caption if text editing failed
+                await query.edit_message_caption(
+                    caption=text,
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+        except Exception as e2:
+            logging.error(f"Error showing custom rejection input after both attempts: {e2}")
+            # Send new message as fallback
+            try:
+                await context.bot.send_message(
+                    chat_id=query.message.chat_id,
+                    text=text,
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+                await query.answer("Custom rejection input opened")
+            except Exception as e3:
+                logging.error(f"Failed to show custom rejection input: {e3}")
+                await query.answer("❗ Error showing custom rejection input. Please try again.")
 
 async def handle_rejection_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle rejection cancellation - go back to original approval interface"""
@@ -663,7 +750,13 @@ async def execute_rejection(query, post_id, rejection_reason, admin_id, context)
     """Execute the rejection with the given reason"""
     post = get_post_by_id(post_id)
     if not post:
-        await query.edit_message_text("❗ Post not found.")
+        try:
+            await query.edit_message_text("❗ Post not found.")
+        except:
+            try:
+                await query.edit_message_caption(caption="❗ Post not found.")
+            except:
+                pass
         return
     
     submitter_id = post[4]
@@ -672,16 +765,61 @@ async def execute_rejection(query, post_id, rejection_reason, admin_id, context)
     # Reject the post with reason
     reject_post(post_id, rejection_reason, admin_id)
     
-    # Update admin interface
+    # Update admin interface - handle both text and media messages
+    success_message = (
+        f"❌ **Submission rejected**\n\n"
+        f"**Reason:** {rejection_reason}\n\n"
+        f"The user has been notified with this explanation."
+    )
+    
+    # Determine if this is a media message by checking if it has a caption
+    is_media_message = hasattr(query.message, 'caption') and query.message.caption is not None
+    
     try:
-        await query.edit_message_text(
-            f"❌ **Submission rejected**\n\n"
-            f"**Reason:** {rejection_reason}\n\n"
-            f"The user has been notified with this explanation.",
-            parse_mode="Markdown"
-        )
+        if is_media_message:
+            # For media messages, edit the caption
+            await query.edit_message_caption(
+                caption=success_message,
+                parse_mode="Markdown"
+            )
+        else:
+            # For text messages, edit the text
+            await query.edit_message_text(
+                success_message,
+                parse_mode="Markdown"
+            )
     except Exception as e:
-        logging.error(f"Error updating admin interface: {e}")
+        # If the first attempt fails, try the other method
+        try:
+            if is_media_message:
+                # Try editing text if caption editing failed
+                await query.edit_message_text(
+                    success_message,
+                    parse_mode="Markdown"
+                )
+            else:
+                # Try editing caption if text editing failed
+                await query.edit_message_caption(
+                    caption=success_message,
+                    parse_mode="Markdown"
+                )
+        except Exception as e2:
+            # If both methods fail, send a new message as fallback
+            try:
+                await context.bot.send_message(
+                    chat_id=query.message.chat_id,
+                    text=success_message,
+                    parse_mode="Markdown"
+                )
+                # Delete the original message to avoid clutter
+                try:
+                    await query.message.delete()
+                except:
+                    pass
+                # Answer the callback to prevent "loading" state
+                await query.answer("Post rejected successfully")
+            except Exception as e3:
+                logging.error(f"Failed to send rejection confirmation after all attempts: {e3}")
     
     # Deduct points for rejected confession
     await RankingIntegration.handle_confession_rejected(submitter_id, post_id, admin_id)
@@ -694,7 +832,7 @@ async def execute_rejection(query, post_id, rejection_reason, admin_id, context)
             message_text = f"""
 ❌ *Confession Rejected*
 
-Your confession in category `{escape_markdown_text(category)}` was rejected by the administrators\.
+Your confession in category `{escape_markdown_text(category)}` was rejected by the administrators\\.
 
 *Reason:* {escape_markdown_text(rejection_reason)}
 
@@ -703,7 +841,7 @@ Your confession in category `{escape_markdown_text(category)}` was rejected by t
 • Modify your confession and resubmit
 • Ask questions if you need clarification
 
-🔄 You're welcome to submit a new confession anytime\!
+🔄 You're welcome to submit a new confession anytime\\!
 """
             
             # Create keyboard with helpful buttons
