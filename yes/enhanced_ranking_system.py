@@ -271,68 +271,71 @@ class EnhancedAchievementSystem:
     
     def check_achievement_qualification(self, user_id: int, achievement: EnhancedAchievement) -> bool:
         """Enhanced achievement qualification checking"""
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
+        from db_connection import get_db_connection
+        
+        db_conn = get_db_connection()
         
         try:
-            # Check if user already has this achievement
-            cursor.execute("""
-                SELECT COUNT(*) FROM user_achievements 
-                WHERE user_id = ? AND achievement_type = ?
-            """, (user_id, achievement.achievement_type))
-            
-            if cursor.fetchone()[0] > 0:
-                return False
-            
-            # Check prerequisites if any
-            if achievement.prerequisite:
-                cursor.execute("""
-                    SELECT COUNT(*) FROM user_achievements 
-                    WHERE user_id = ? AND achievement_type = ?
-                """, (user_id, achievement.prerequisite))
+            with db_conn.get_connection() as conn:
+                cursor = conn.cursor()
+                placeholder = db_conn.get_placeholder()
                 
-                if cursor.fetchone()[0] == 0:
+                # Check if user already has this achievement
+                cursor.execute(f"""
+                    SELECT COUNT(*) FROM user_achievements 
+                    WHERE user_id = {placeholder} AND achievement_type = {placeholder}
+                """, (user_id, achievement.achievement_type))
+                
+                if cursor.fetchone()[0] > 0:
                     return False
-            
-            # Specific achievement checks
-            if achievement.achievement_type.startswith('confession_milestone_'):
-                target = int(achievement.achievement_type.split('_')[-1])
-                cursor.execute('SELECT COUNT(*) FROM posts WHERE user_id = ? AND approved = 1', (user_id,))
-                count = cursor.fetchone()[0]
-                return count >= target
-            
-            elif achievement.achievement_type.startswith('comment_milestone_'):
-                target = int(achievement.achievement_type.split('_')[-1])
-                cursor.execute('SELECT COUNT(*) FROM comments WHERE user_id = ?', (user_id,))
-                count = cursor.fetchone()[0]
-                return count >= target
-            
-            elif achievement.achievement_type.startswith('point_milestone_'):
-                target = int(achievement.achievement_type.split('_')[-1])
-                cursor.execute('SELECT total_points FROM user_rankings WHERE user_id = ?', (user_id,))
-                result = cursor.fetchone()
-                if result:
-                    return result[0] >= target
-            
-            elif achievement.achievement_type == 'achievement_hunter':
-                cursor.execute('SELECT total_achievements FROM user_rankings WHERE user_id = ?', (user_id,))
-                result = cursor.fetchone()
-                return result and result[0] >= 10
-            
-            elif achievement.achievement_type == 'completionist':
-                cursor.execute('SELECT total_achievements FROM user_rankings WHERE user_id = ?', (user_id,))
-                result = cursor.fetchone()
-                return result and result[0] >= 25
-            
-            # Add more specific checks as needed...
-            
-            return False
+                
+                # Check prerequisites if any
+                if achievement.prerequisite:
+                    cursor.execute(f"""
+                        SELECT COUNT(*) FROM user_achievements 
+                        WHERE user_id = {placeholder} AND achievement_type = {placeholder}
+                    """, (user_id, achievement.prerequisite))
+                    
+                    if cursor.fetchone()[0] == 0:
+                        return False
+                
+                # Specific achievement checks
+                if achievement.achievement_type.startswith('confession_milestone_'):
+                    target = int(achievement.achievement_type.split('_')[-1])
+                    cursor.execute(f'SELECT COUNT(*) FROM posts WHERE user_id = {placeholder} AND approved = 1', (user_id,))
+                    count = cursor.fetchone()[0]
+                    return count >= target
+                
+                elif achievement.achievement_type.startswith('comment_milestone_'):
+                    target = int(achievement.achievement_type.split('_')[-1])
+                    cursor.execute(f'SELECT COUNT(*) FROM comments WHERE user_id = {placeholder}', (user_id,))
+                    count = cursor.fetchone()[0]
+                    return count >= target
+                
+                elif achievement.achievement_type.startswith('point_milestone_'):
+                    target = int(achievement.achievement_type.split('_')[-1])
+                    cursor.execute(f'SELECT total_points FROM user_rankings WHERE user_id = {placeholder}', (user_id,))
+                    result = cursor.fetchone()
+                    if result:
+                        return result[0] >= target
+                
+                elif achievement.achievement_type == 'achievement_hunter':
+                    cursor.execute(f'SELECT total_achievements FROM user_rankings WHERE user_id = {placeholder}', (user_id,))
+                    result = cursor.fetchone()
+                    return result and result[0] >= 10
+                
+                elif achievement.achievement_type == 'completionist':
+                    cursor.execute(f'SELECT total_achievements FROM user_rankings WHERE user_id = {placeholder}', (user_id,))
+                    result = cursor.fetchone()
+                    return result and result[0] >= 25
+                
+                # Add more specific checks as needed...
+                
+                return False
             
         except Exception as e:
             print(f"Error checking achievement {achievement.achievement_type}: {e}")
             return False
-        finally:
-            conn.close()
 
 def install_enhanced_achievements():
     """Install all enhanced achievements into the database"""
