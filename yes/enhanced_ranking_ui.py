@@ -28,6 +28,16 @@ def format_number_for_markdown(value: float, decimal_places: int = 1) -> str:
     # Escape decimal points for MarkdownV2
     return formatted.replace('.', '\\.')
 
+def escape_all_markdown_v2(text: str) -> str:
+    """Escape all special characters for MarkdownV2"""
+    # Characters that need escaping in MarkdownV2: _*[]()~`>#+-=|{}.!
+    chars_to_escape = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    
+    for char in chars_to_escape:
+        text = text.replace(char, '\\' + char)
+    
+    return text
+
 class EnhancedRankingUI:
     """Enhanced UI components with better visualizations"""
     
@@ -94,12 +104,13 @@ class EnhancedRankingUI:
             next_rank_text = "🎉 Maximum rank achieved!"
         
         # Get streak visualization
-        import sqlite3
-        from config import DB_PATH
+        from db_connection import get_db_connection
         try:
-            with sqlite3.connect(DB_PATH) as conn:
+            db_conn = get_db_connection()
+            with db_conn.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT consecutive_days FROM user_rankings WHERE user_id = ?", (user_id,))
+                placeholder = db_conn.get_placeholder()
+                cursor.execute(f"SELECT consecutive_days FROM user_rankings WHERE user_id = {placeholder}", (user_id,))
                 result = cursor.fetchone()
                 streak_days = result[0] if result else 0
         except Exception as e:
@@ -221,22 +232,20 @@ class EnhancedRankingUI:
     
     @staticmethod
     def format_enhanced_achievements(achievements: List[Dict], user_achievements_count: int) -> str:
-        """Enhanced achievements display with categories and progress"""
+        """Enhanced achievements display with categories and progress - Plain text format"""
         if not achievements:
-            return """
-🎯 *YOUR ACHIEVEMENTS*
+            return """🎯 YOUR ACHIEVEMENTS
 
-🌟 No achievements unlocked yet\\!
+🌟 No achievements unlocked yet!
 
-💡 *Start earning achievements by:*
+💡 Start earning achievements by:
 • Posting your first confession
 • Making your first comment  
 • Building daily streaks
 • Getting likes on your content
 • Participating in community events
 
-🎁 Each achievement rewards you with bonus points\\!
-"""
+🎁 Each achievement rewards you with bonus points!"""
         
         # Group achievements by category
         categories = {}
@@ -246,40 +255,103 @@ class EnhancedRankingUI:
                 categories[category] = []
             categories[category].append(achievement)
         
-        achievements_text = f"""
-🎯 *YOUR ACHIEVEMENTS* \\({len(achievements)} earned\\)
-
-"""
+        # Sort categories by importance
+        category_order = ['milestone', 'content', 'engagement', 'popularity', 'streak', 'quality', 'community', 'seasonal', 'secret', 'time', 'points', 'meta']
+        sorted_categories = []
+        for cat in category_order:
+            if cat in [c.lower() for c in categories.keys()]:
+                # Find the actual category name (with proper case)
+                actual_cat = next(c for c in categories.keys() if c.lower() == cat)
+                sorted_categories.append(actual_cat)
+        # Add any remaining categories not in the order list
+        for cat in categories.keys():
+            if cat not in sorted_categories:
+                sorted_categories.append(cat)
+        
+        achievements_text = f"🎯 YOUR ACHIEVEMENTS ({len(achievements)} earned)\n\n"
         
         # Category emojis
         category_emojis = {
             'milestone': '🎯', 'content': '📝', 'engagement': '💬',
             'popularity': '🔥', 'streak': '⚡', 'quality': '💎',
             'community': '🤝', 'seasonal': '🎪', 'secret': '🔮',
-            'time': '⏰', 'points': '💰', 'meta': '🏅'
+            'time': '⏰', 'points': '💰', 'meta': '🏅', 'general': '🏆'
         }
         
-        for category, cat_achievements in categories.items():
+        for category in sorted_categories:
+            if category not in categories:
+                continue
+                
+            cat_achievements = categories[category]
             emoji = category_emojis.get(category.lower(), '🏆')
-            achievements_text += f"{emoji} *{category.title()}*\\n"
             
-            for achievement in cat_achievements[:3]:  # Show max 3 per category
-                special_mark = "⭐" if achievement.get('is_special') else "🏆"
-                date_str = achievement['date'][:10] if achievement.get('date') else "Recent"
+            # Clean category display
+            achievements_text += "━━━━━━━━━━━━━━━━━━━━━━━\n"
+            achievements_text += f"{emoji} {category.upper()} ({len(cat_achievements)} unlocked)\n\n"
+            
+            # Show achievements in this category (max 4 for better readability)
+            for i, achievement in enumerate(cat_achievements[:4]):
+                special_mark = "⭐" if achievement.get('is_special') else "🏅"
+                
+                # Format date more nicely
+                date_value = achievement.get('date')
+                if date_value:
+                    if isinstance(date_value, str):
+                        # If it's already a string, try to format it nicely
+                        try:
+                            from datetime import datetime
+                            parsed_date = datetime.fromisoformat(date_value.replace('Z', '+00:00'))
+                            date_str = parsed_date.strftime('%b %d, %Y')
+                        except:
+                            date_str = date_value[:10] if len(date_value) >= 10 else date_value
+                    else:
+                        # datetime object
+                        date_str = date_value.strftime('%b %d, %Y')
+                else:
+                    date_str = "Recent"
+                
+                # Clean achievement name and description
+                name = achievement.get('name', 'Unknown Achievement')
+                description = achievement.get('description', 'No description available')
+                points = achievement.get('points', 0)
+                
+                # Truncate long descriptions
+                if len(description) > 60:
+                    description = description[:60] + "..."
                 
                 achievements_text += (
-                    f"   {special_mark} *{escape_markdown_text(achievement['name'])}*\\n"
-                    f"      _{escape_markdown_text(achievement['description'])}_\\n"
-                    f"      \\+{achievement['points']} pts • {escape_markdown_text(date_str)}\\n\\n"
+                    f"{special_mark} {name}\n"
+                    f"   📝 {description}\n"
+                    f"   💰 +{points} points • 📅 {date_str}\n\n"
                 )
             
-            if len(cat_achievements) > 3:
-                achievements_text += f"   \\.\\.\\.and {len(cat_achievements) - 3} more in this category\\n\\n"
+            # Show count if there are more achievements in this category
+            if len(cat_achievements) > 4:
+                remaining = len(cat_achievements) - 4
+                achievements_text += f"   📋 ...and {remaining} more in this category\n\n"
         
-        # Achievement progress
-        total_possible = len(EnhancedAchievementSystem().get_all_achievements())
-        progress = (len(achievements) / total_possible) * 100
-        achievements_text += f"📊 *Progress:* {escape_markdown_text(str(len(achievements)))}/{escape_markdown_text(str(total_possible))} \\({format_number_for_markdown(progress)}%\\) unlocked"
+        # Achievement progress summary
+        try:
+            total_possible = len(EnhancedAchievementSystem().get_all_achievements())
+        except:
+            total_possible = 50  # fallback estimate
+            
+        progress = (len(achievements) / total_possible) * 100 if total_possible > 0 else 0
+        
+        achievements_text += "━━━━━━━━━━━━━━━━━━━━━━━\n"
+        achievements_text += f"📊 PROGRESS SUMMARY\n\n"
+        achievements_text += f"🏆 Achievements Unlocked: {len(achievements)}/{total_possible}\n"
+        achievements_text += f"📈 Completion Rate: {progress:.1f}%\n"
+        
+        # Progress bar visualization
+        progress_blocks = int(progress / 10)  # 10 blocks total
+        progress_bar = "█" * progress_blocks + "░" * (10 - progress_blocks)
+        achievements_text += f"📊 [{progress_bar}] {progress:.1f}%\n\n"
+        
+        # Total points from achievements
+        total_points = sum(achievement.get('points', 0) for achievement in achievements)
+        achievements_text += f"💎 Total Achievement Points: {total_points:,}\n"
+        achievements_text += "🚀 Keep unlocking more achievements!"
         
         return achievements_text
     
@@ -497,7 +569,6 @@ async def show_enhanced_achievements(update: Update, context: ContextTypes.DEFAU
     if update.callback_query:
         await update.callback_query.edit_message_text(
             achievements_text,
-            parse_mode="MarkdownV2",
             reply_markup=reply_markup
         )
 
