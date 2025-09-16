@@ -104,3 +104,27 @@ def format_time_ago(dt):
     else:
         weeks = int(seconds // 604800)
         return f"{weeks}w ago"
+
+
+def clean_unicode_corruption(text):
+    """Clean up Unicode corruption in text"""
+    if not text:
+        return text
+    
+    # Dictionary of corrupted characters to fix
+    corruption_fixes = {
+        '遅': ' • ',          # Main issue: Japanese char to bullet
+        '≡ƒÑë': '🥉',        # Bronze medal corruption
+        '≡ƒÄ»': '🏆',        # Trophy corruption
+        'Γ£¿': '✨',         # Sparkle corruption
+        '≡ƒô¥': '📋',        # Clipboard corruption
+        'ΓÇó': '•',          # Bullet corruption
+        '≡ƒÜ¿': '❌',        # X emoji corruption
+    }
+    
+    cleaned_text = text
+    for corrupted, fixed in corruption_fixes.items():
+        if corrupted in cleaned_text:
+            cleaned_text = cleaned_text.replace(corrupted, fixed)
+    
+    return cleaned_text
