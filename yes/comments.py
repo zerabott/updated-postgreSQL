@@ -567,8 +567,11 @@ def format_comment_display(comment_data, user_id, current_page=1, comment_index=
         # Position rank at bottom right by combining it with date
         bottom_line = date_text
         if rank_text:
-            # Add rank to the right side of the bottom line with proper spacing
-            bottom_line = f"{date_text}                    {rank_text.strip()}"
+            # Add rank to the right side with safe separator to avoid Unicode corruption
+            safe_separator = " \u2022 "  # Unicode bullet point (U+2022)
+            # Clean the rank text and format safely
+            clean_rank_text = rank_text.strip().replace('<i>', '').replace('</i>', '')
+            bottom_line = f"{date_text}{safe_separator}{clean_rank_text}"
         
         comment_text = f"<b>comment# {sequential_comment_number}</b>\n\n{display_content}\n\n{bottom_line}"
     
