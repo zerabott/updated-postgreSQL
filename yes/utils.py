@@ -90,3 +90,18 @@ def format_date_only_html(timestamp_str):
         return html_escape(formatted_date)
     except:
         return "unknown date"
+
+
+def get_safe_separator():
+    """Get a safe separator character that works across all platforms"""
+    import os
+    # Use ASCII-safe separator for hosting environments
+    if os.getenv('HOSTING_SAFE_MODE', 'false').lower() == 'true':
+        return ' | '  # ASCII pipe separator
+    else:
+        return ' • '  # Standard bullet point
+
+def safe_format_with_rank(timestamp_text, rank_emoji, rank_name):
+    """Format timestamp with rank using safe separator"""
+    separator = get_safe_separator()
+    return f"{timestamp_text}{separator}{rank_emoji} {rank_name}"
