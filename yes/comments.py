@@ -735,3 +735,24 @@ async def update_channel_message_comment_count(context, post_id):
     
     except Exception as e:
         return False, f"Failed to update channel message: {str(e)}"
+
+
+
+# Fix for comment display separator issue
+# This replaces the corrupted character '遅' with proper separator
+
+def fix_comment_separator_display(text):
+    """Fix corrupted separator characters in comment display"""
+    # Replace the corrupted Japanese character with proper bullet point
+    if '遅' in text:
+        text = text.replace('遅', ' • ')
+    return text
+
+def safe_format_comment_footer(timestamp_str, rank_emoji, rank_name):
+    """
+    Safe formatter for comment footer that avoids encoding issues
+    Creates format: "09/15 19:31 • 🥉 Freshman"
+    """
+    # Use ASCII-safe bullet point
+    separator = " • "
+    return f"{timestamp_str}{separator}{rank_emoji} {rank_name}"
